@@ -26,7 +26,6 @@ print_help()
   echo "  -b DATETIME       Before: only records BEFORE this date are considered (without this date)"
   echo "  -t TICKER         Only entries corresponding to a given ticker are considered. With multiple occurrences of the switch, the set of all listed ticker is taken"
   echo "  -w WIDTH          In the list of graphs, sets their width, in the length of the longest line to WIDTH. This, WIDTH must be a positive integer. Multiple occurrences of the switch is a faulty start."
-
 }
 
 COMMAND=""
@@ -80,10 +79,13 @@ do
     GZ_LOG_FILES="$1 $GZ_LOG_FILES"
     shift
     ;;
+  *)
+    echo "Nevalidni parametr. tradelog -h pro vypis napovedy."
+    exit 0
   esac
 done
 
-READ_INPUT=""
+READ_INPUT="cat"
 
 if [ "$GZ_LOG_FILES" = "" ] && [ "$LOG_FILES" != "" ]; then
    READ_INPUT=$(cat $LOG_FILES)
@@ -121,10 +123,10 @@ if [ "$COMMAND" = "pos" ]; then
         TMP_TICK="$TMP_TICK;${TICK}"
       fi
     done
-    PRINT="$(echo "$PRINT" | awk -F ';' -v TICKERS="$TMP_TICK" 'BEGIN{n = split(TICKERS, tic)} {for(i = 1; i <= n; i++){if($2 == tic[i]){if($3 == "buy"){sum[i] += $6} else{sum[i] -= $6} last[i]=$4}}} END{max=0; for(i = 1; i <= n; i++){tmp = length(sum[i]*last[i]); if(max < tmp){max=tmp}}for(i = 1; i <= n; i++) printf("%-10s : %*.2f\n", tic[i], (max - 1), last[i]*sum[i])}' | sort -n -r -t ':' -k 2)"
+    PRINT="$(echo "$PRINT" | awk -F ';' -v TICKERS="$TMP_TICK" 'BEGIN{n = split(TICKERS, tic)} {for(i = 1; i <= n; i++){if($2 == tic[i]){if($3 == "buy"){sum[i] += $6} else{sum[i] -= $6} last[i]=$4}}} END{max=0; for(i = 1; i <= n; i++){tmp = length(sum[i]*last[i]); if(max < tmp){max=tmp}}for(i = 1; i <= n; i++) printf("%-10s: %*.2f\n", tic[i], max - 1, last[i]*sum[i])}' | sort -n -r -t ':' -k 2)"
 fi
 
-# print pos
+# print last-price
 if [ "$COMMAND" = "last-price" ]; then
     TMP_TICK=""
     for TICK in $(echo "$PRINT" | awk -F ';' '{print $2}' | sort -u); do
@@ -134,8 +136,10 @@ if [ "$COMMAND" = "last-price" ]; then
         TMP_TICK="$TMP_TICK;${TICK}"
       fi
     done
-    PRINT="$(echo "$PRINT" | awk -F ';' -v TICKERS="$TMP_TICK" 'BEGIN{n = split(TICKERS, tic)} {for(i = 1; i <= n; i++){if($2 == tic[i]){last[i]=$4}}} END{max=0; for(i = 1; i <= n; i++){tmp = length(last[i]); if(max < tmp){max=tmp}}for(i = 1; i <= n; i++) printf("%-10s: %*.2f\n", tic[i], (max), last[i])}' )"
+    PRINT="$(echo "$PRINT" | awk -F ';' -v TICKERS="$TMP_TICK" 'BEGIN{n = split(TICKERS, tic)} {for(i = 1; i <= n; i++){if($2 == tic[i]){last[i]=$4}}} END{max=0; for(i = 1; i <= n; i++){tmp = length(last[i]); if(max < tmp){max=tmp}}for(i = 1; i <= n; i++) printf("%-10s: %*.2f\n", tic[i], max, last[i])}' )"
 fi
 
-echo "$PRINT"
+if [ "$PRINT" != "" ]; then
+  echo "$PRINT"
+fi
 
