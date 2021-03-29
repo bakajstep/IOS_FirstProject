@@ -85,7 +85,7 @@ do
   esac
 done
 
-READ_INPUT="cat"
+#READ_INPUT="$(cat)"
 
 if [ "$GZ_LOG_FILES" = "" ] && [ "$LOG_FILES" != "" ]; then
    READ_INPUT=$(cat $LOG_FILES)
@@ -123,7 +123,7 @@ if [ "$COMMAND" = "pos" ]; then
         TMP_TICK="$TMP_TICK;${TICK}"
       fi
     done
-    PRINT="$(echo "$PRINT" | awk -F ';' -v TICKERS="$TMP_TICK" 'BEGIN{n = split(TICKERS, tic)} {for(i = 1; i <= n; i++){if($2 == tic[i]){if($3 == "buy"){sum[i] += $6} else{sum[i] -= $6} last[i]=$4}}} END{max=0; for(i = 1; i <= n; i++){tmp = length(sum[i]*last[i]); if(max < tmp){max=tmp}}for(i = 1; i <= n; i++) printf("%-10s: %*.2f\n", tic[i], max - 1, last[i]*sum[i])}' | sort -n -r -t ':' -k 2)"
+    PRINT="$(echo "$PRINT" | awk -F ';' -v TICKERS="$TMP_TICK" 'BEGIN{n = split(TICKERS, tic)} {for(i = 1; i <= n; i++){if($2 == tic[i]){if($3 == "buy"){sum[i] += $6} else{sum[i] -= $6} last[i]=$4}}} END{max=0; for(i = 1; i <= n; i++){tmp = length(sprintf("%.2f", sum[i]*last[i])); if(max < tmp){max=tmp}}for(i = 1; i <= n; i++) printf("%-10s: %*.2f\n", tic[i], max, last[i]*sum[i])}' | sort -n -r -t ':' -k 2)"
 fi
 
 # print last-price
@@ -136,8 +136,26 @@ if [ "$COMMAND" = "last-price" ]; then
         TMP_TICK="$TMP_TICK;${TICK}"
       fi
     done
-    PRINT="$(echo "$PRINT" | awk -F ';' -v TICKERS="$TMP_TICK" 'BEGIN{n = split(TICKERS, tic)} {for(i = 1; i <= n; i++){if($2 == tic[i]){last[i]=$4}}} END{max=0; for(i = 1; i <= n; i++){tmp = length(last[i]); if(max < tmp){max=tmp}}for(i = 1; i <= n; i++) printf("%-10s: %*.2f\n", tic[i], max, last[i])}' )"
+    PRINT="$(echo "$PRINT" | awk -F ';' -v TICKERS="$TMP_TICK" 'BEGIN{n = split(TICKERS, tic)} {for(i = 1; i <= n; i++){if($2 == tic[i]){last[i]=$4}}} END{max=0; for(i = 1; i <= n; i++){tmp = length(last[i]); if(max < tmp){max=tmp}}for(i = 1; i <= n; i++)printf("%-10s: %*.2f\n", tic[i], max, last[i])}' )"
 fi
+
+
+if [ "$COMMAND" = "hist-ord" ]; then
+    TMP_TICK=""
+    for TICK in $(echo "$PRINT" | awk -F ';' '{print $2}' | sort -u); do
+      if [ "$TMP_TICK" = "" ]; then
+        TMP_TICK="${TICK}"
+      else
+        TMP_TICK="$TMP_TICK;${TICK}"
+      fi
+    done
+    if [ "$WIDTH" = "" ]; then
+        PRINT="$(echo "$PRINT" | awk -F ';' -v TICKERS="$TMP_TICK" 'BEGIN{n = split(TICKERS, tic)} {for(i = 1; i <= n; i++){if($2 == tic[i]){if($3 == "buy" || $3 == "sell"){sum[i] = sum[i] + 1}}}} END{for(i = 1; i <= n; i++){printf("%-10s: ", tic[i]);for(j = 1; j <= sum[i]; j++){printf "#"}printf "\n"}}')"
+    else
+      PRINT="$(echo "$PRINT" | awk -F ';' -v WIDTH="$WIDTH" -v TICKERS="$TMP_TICK" 'BEGIN{n = split(TICKERS, tic)} {for(i = 1; i <= n; i++){if($2 == tic[i]){if($3 == "buy" || $3 == "sell"){sum[i] = sum[i] + 1}}}} END{max=-1; for(i = 1; i <= n; i++){tmp = sum[i]; if(max < tmp){max=tmp}}for(i = 1; i <= n; i++){printf("%-10s: ", tic[i]);for(j = 1; j <= int(sum[i]/(max/WIDTH)); j++){printf "#"}printf "\n"}}')"
+    fi
+fi
+
 
 if [ "$PRINT" != "" ]; then
   echo "$PRINT"
