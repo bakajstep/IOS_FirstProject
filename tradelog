@@ -1,0 +1,141 @@
+#!/bin/sh
+
+export POSIXLY_CORRECT=yes
+export LC_NUMERIC=en_US.UTF-8
+
+print_help()
+{
+  echo "tradelog - log analyzer for stock market"
+  echo ""
+  echo "Usage: tradelog [-h|--help]"
+  echo "   or: tradelog [FILTR] [COMMAND] [LOG [LOG2 [...]]"
+  echo ""
+  echo "Arguments:"
+  echo "  -h | --h         Print help"
+  echo ""
+  echo "COMMAND:"
+  echo "  list-tick         Listing of occurring stock exchange symbols \"tickers\""
+  echo "  profit            Listing profit from all closed trades"
+  echo "  pos               Listing of current hold position sorted in descending order by value"
+  echo "  last-price        Listing of last known price for each ticker"
+  echo "  hist-ord          Histogram report of the number of transactions according to the ticker"
+  echo "  graph-pos         Statement of the graph of values of held positions according to the ticker"
+  echo ""
+  echo "FILTR:"
+  echo "  -a DATETIME       After: only records after this date are considered (without this date). DATETIME is in the format YYYY-MM-DD HH:MM:SS"
+  echo "  -b DATETIME       Before: only records BEFORE this date are considered (without this date)"
+  echo "  -t TICKER         Only entries corresponding to a given ticker are considered. With multiple occurrences of the switch, the set of all listed ticker is taken"
+  echo "  -w WIDTH          In the list of graphs, sets their width, in the length of the longest line to WIDTH. This, WIDTH must be a positive integer. Multiple occurrences of the switch is a faulty start."
+
+}
+
+COMMAND=""
+DATETIME_BEFORE="9999-99-99 99:99:99"
+DATETIME_AFTER=""
+TICKER=""
+WIDTH=""
+LOG_FILES=""
+GZ_LOG_FILES=""
+
+while [ "$#" -gt 0 ]
+do
+  case "$1" in
+  -h | --help)
+    print_help
+    exit 0
+    ;;
+  list-tick | pos | profit | last-price | hist-ord | graph-pos)
+      COMMAND="$1"
+      shift
+      ;;
+  -a)
+    DATETIME_AFTER="$2"
+    shift
+    shift
+    ;;
+  -b)
+    DATETIME_BEFORE="$2"
+    shift
+    shift
+    ;;
+  -t)
+    if [ "$TICKER" = "" ]; then
+      TICKER="$2"
+    else
+      TICKER="$2;$TICKER"
+    fi
+    shift
+    shift
+    ;;
+  -w)
+    WIDTH="$2"
+    shift
+    shift
+    ;;
+  *.log)
+    LOG_FILES="$1 $LOG_FILES"
+    shift
+    ;;
+  *.log.gz)
+    GZ_LOG_FILES="$1 $GZ_LOG_FILES"
+    shift
+    ;;
+  esac
+done
+
+READ_INPUT=""
+
+if [ "$GZ_LOG_FILES" = "" ] && [ "$LOG_FILES" != "" ]; then
+   READ_INPUT=$(cat $LOG_FILES)
+elif [ "$GZ_LOG_FILES" != "" ]; then
+  READ_INPUT=$(gzip -d -c $GZ_LOG_FILES | cat $LOG_FILES - | sort)
+fi
+
+# print bez casu
+PRINT="$(echo "$READ_INPUT" | awk -F ';' -v AFTER="$DATETIME_AFTER" -v BEFORE="$DATETIME_BEFORE" '{if ($1 > AFTER && $1 < BEFORE) {print $0}}')"
+
+
+# print bez tickeru
+if [ "$TICKER" != "" ]; then
+    PRINT="$(echo "$PRINT" | awk -F ';' -v TICKER="$TICKER" 'BEGIN{n = split(TICKER, tic)} {for(i = 1; i <= n; i++) if($2 == tic[i]) print}')"
+fi
+
+
+# print list ticky
+if [ "$COMMAND" = "list-tick" ]; then
+    PRINT=$(echo "$PRINT" | awk -F ';' '{print $2}' | sort -u)
+fi
+
+# print profit
+if [ "$COMMAND" = "profit" ]; then
+    PRINT=$(echo "$PRINT" | awk -F ';' '{if($3 == "buy"){BUY += $4 * $6} else{SELL += $4 * $6}} END{printf("%.2f\n", SELL-BUY)}')
+fi
+
+# print pos
+if [ "$COMMAND" = "pos" ]; then
+    TMP_TICK=""
+    for TICK in $(echo "$PRINT" | awk -F ';' '{print $2}' | sort -u); do
+      if [ "$TMP_TICK" = "" ]; then
+        TMP_TICK="${TICK}"
+      else
+        TMP_TICK="$TMP_TICK;${TICK}"
+      fi
+    done
+    PRINT="$(echo "$PRINT" | awk -F ';' -v TICKERS="$TMP_TICK" 'BEGIN{n = split(TICKERS, tic)} {for(i = 1; i <= n; i++){if($2 == tic[i]){if($3 == "buy"){sum[i] += $6} else{sum[i] -= $6} last[i]=$4}}} END{max=0; for(i = 1; i <= n; i++){tmp = length(sum[i]*last[i]); if(max < tmp){max=tmp}}for(i = 1; i <= n; i++) printf("%-10s : %*.2f\n", tic[i], (max - 1), last[i]*sum[i])}' | sort -n -r -t ':' -k 2)"
+fi
+
+# print pos
+if [ "$COMMAND" = "last-price" ]; then
+    TMP_TICK=""
+    for TICK in $(echo "$PRINT" | awk -F ';' '{print $2}' | sort -u); do
+      if [ "$TMP_TICK" = "" ]; then
+        TMP_TICK="${TICK}"
+      else
+        TMP_TICK="$TMP_TICK;${TICK}"
+      fi
+    done
+    PRINT="$(echo "$PRINT" | awk -F ';' -v TICKERS="$TMP_TICK" 'BEGIN{n = split(TICKERS, tic)} {for(i = 1; i <= n; i++){if($2 == tic[i]){last[i]=$4}}} END{max=0; for(i = 1; i <= n; i++){tmp = length(last[i]); if(max < tmp){max=tmp}}for(i = 1; i <= n; i++) printf("%-10s: %*.2f\n", tic[i], (max), last[i])}' )"
+fi
+
+echo "$PRINT"
+
