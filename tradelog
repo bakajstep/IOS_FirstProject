@@ -30,7 +30,7 @@ print_help()
 
 COMMAND=""
 DATETIME_BEFORE="9999-99-99 99:99:99"
-DATETIME_AFTER=""
+DATETIME_AFTER="0000-00-00 00:00:00"
 TICKER=""
 WIDTH=""
 LOG_FILES=""
@@ -48,12 +48,20 @@ do
       shift
       ;;
   -a)
-    DATETIME_AFTER="$2"
+    if [ "$DATETIME_AFTER" = "0000-00-00 00:00:00" ]; then
+      DATETIME_AFTER="$2"
+    else
+      DATETIME_AFTER=$(awk -v FIRST="$DATETIME_AFTER" -v SECOND="$2" 'BEGIN{if(FIRST < SECOND){printf FIRST}else{printf SECOND}}')
+    fi
     shift
     shift
     ;;
   -b)
-    DATETIME_BEFORE="$2"
+    if [ "$DATETIME_BEFORE" = "9999-99-99 99:99:99" ]; then
+      DATETIME_BEFORE="$2"
+    else
+      DATETIME_BEFORE=$(awk -v FIRST="$DATETIME_BEFORE" -v SECOND="$2" 'BEGIN{if(FIRST > SECOND){printf FIRST}else{printf SECOND}}')
+    fi
     shift
     shift
     ;;
@@ -185,3 +193,4 @@ if [ "$PRINT" != "" ]; then
   echo "$PRINT"
 fi
 
+exit 0
