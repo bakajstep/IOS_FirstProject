@@ -301,13 +301,3 @@ Příklady:
     $ cat /dev/null | ./tradelog profit
     0.00
 
-*   *   [Popis úlohy](#popis-úlohy)
-    *   [Zjednodušený úvod do problematiky](#zjednodušený-úvod-do-problematiky)
-    *   [Specifikace rozhraní skriptu](#specifikace-rozhraní-skriptu)
-    *   [Popis](#popis)
-    *   [Podrobné požadavky](#podrobné-požadavky)
-    *   [Návratová hodnota](#návratová-hodnota)
-    *   [Implementační detaily](#implementační-detaily)
-    *   [Odevzdání projektu](#odevzdání-projektu)
-    *   [Rady](#rady)
-    *   [Příklady použití](#příklady-použití)
